@@ -1,0 +1,10 @@
+{
+  "name": "gastos-pessoais",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\"",
+    "diagnostico": "node tools/diagnostico.mjs",
+    "backup-inicial": "node tools/gerar-backup-inicial.mjs"
+  }
+}

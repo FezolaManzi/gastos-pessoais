@@ -1,0 +1,4 @@
+# Dados bancários e regras com nomes de pessoas: nunca publicar
+extratos/
+privado/
+node_modules/
