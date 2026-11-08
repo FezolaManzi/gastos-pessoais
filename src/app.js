@@ -10,7 +10,7 @@ import {
   CONFIG_PADRAO, calcularEnvelope, compararMeses, dinheiroLivre, historicoFechamentos, registrarFechamentos, relatorioItens, resumoMes, totalFixos,
 } from './envelope.js';
 import { desfazerVinculo, planejarImportacao, retirarDasRevisoes, vincular, vincularSoma } from './importador.js';
-import { diasAntes, isoLocal, mesAnterior, mesSeguinte, parseLancamento, parseValor } from './lancamento.js';
+import { diasAntes, isoLocal, maisRecentePrimeiro, mesAnterior, mesSeguinte, parseLancamento, parseValor } from './lancamento.js';
 import { ITENS_PADRAO, montarBackup, precisaLembrete, validarBackup } from './backup.js';
 
 const S = { transacoes: [], regras: [], itens: [], meta: {}, mes: null, grupo: null };
@@ -26,7 +26,7 @@ const dataCurta = (iso) => `${iso.slice(8)}/${iso.slice(5, 7)}`;
 const nomeMes = (mes) => `${MESES[Number(mes.slice(5)) - 1]} ${mes.slice(0, 4)}`;
 const paraCampo = (c) => (c / 100).toFixed(2).replace('.', ',');
 const aClassificar = () => S.transacoes.filter((t) => t.categoria === A_CLASSIFICAR);
-const emRevisao = () => S.transacoes.filter((t) => t.revisao || t.revisaoSoma);
+const emRevisao = () => S.transacoes.filter((t) => t.revisao || t.revisaoSoma).sort(maisRecentePrimeiro);
 const ehEntrada = (t) => ehCredito(t);
 const modoInstalado = () => navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
 
@@ -91,6 +91,7 @@ async function adicionarManual({ centavos, descricao, data, item, grupo, categor
     id: `manual-${crypto.randomUUID()}`,
     tipo: 'manual',
     data,
+    criadoEm: new Date().toISOString(),
     centavos,
     ...base,
     cidade: '',
@@ -463,7 +464,7 @@ function navMes() {
 
 function telaExtrato() {
   const mes = S.mes || hoje().slice(0, 7);
-  const lista = S.transacoes.filter((t) => t.data.slice(0, 7) === mes).sort((a, b) => b.data.localeCompare(a.data));
+  const lista = S.transacoes.filter((t) => t.data.slice(0, 7) === mes).sort(maisRecentePrimeiro);
   return [
     el('h1', {}, 'Extrato'),
     el('div', { class: 'chips' },
@@ -483,13 +484,13 @@ function telaClassificar() {
     if (!grupos.has(k)) grupos.set(k, []);
     grupos.get(k).push(t);
   }
-  const ordenados = [...grupos.values()].sort((a, b) => a.reduce((s, t) => s + t.centavos, 0) - b.reduce((s, t) => s + t.centavos, 0));
+  const ordenados = [...grupos.values()].map((l) => l.sort(maisRecentePrimeiro)).sort((a, b) => maisRecentePrimeiro(a[0], b[0]));
   return [
     el('h1', {}, 'A classificar'),
     el('p', { class: 'suave' }, 'Um toque categoriza e cria a regra para esse nome.'),
     ordenados.length ? ordenados.map((lista) => el('div', { class: 'cartao' },
       el('strong', {}, lista[0].contraparte),
-      el('div', { class: 'suave' }, `${lista.length}× · ${brl(-lista.reduce((s, t) => s + t.centavos, 0))} · último em ${dataCurta(lista.map((t) => t.data).sort().at(-1))}`),
+      el('div', { class: 'suave' }, `${lista.length}× · ${brl(-lista.reduce((s, t) => s + t.centavos, 0))} · último em ${dataCurta(lista[0].data)}`),
       chipsCategorias(lista[0], (c) => corrigirCategoria(lista[0], c)))) : el('p', {}, 'Tudo classificado.'),
   ];
 }
@@ -498,7 +499,7 @@ function cartaoRevisao(t) {
   const cabecalho = [el('strong', {}, t.contraparte), el('div', { class: 'suave' }, `Extrato · ${dataCurta(t.data)} · ${brl(-t.centavos)}`)];
   const diferentes = el('button', { class: 'botao sec bloco', onclick: () => marcarDiferentes(t) }, 'Nenhum, são gastos diferentes');
   if (t.revisaoSoma) {
-    const itens = t.revisaoSoma.map((id) => S.transacoes.find((x) => x.id === id)).filter(Boolean);
+    const itens = t.revisaoSoma.map((id) => S.transacoes.find((x) => x.id === id)).filter(Boolean).sort(maisRecentePrimeiro);
     return el('div', { class: 'cartao' }, cabecalho,
       el('p', {}, 'Estes itens do dia somam esse valor. Foram este pagamento?'),
       itens.map((m) => el('div', { class: 'barra-topo barra-linha' }, el('span', {}, m.contraparte), el('strong', {}, brl(-m.centavos)))),
@@ -507,7 +508,7 @@ function cartaoRevisao(t) {
   }
   return el('div', { class: 'cartao' }, cabecalho,
     el('p', {}, 'Corresponde a qual lançamento manual?'),
-    t.revisao.map((id) => S.transacoes.find((x) => x.id === id)).filter(Boolean).map((m) => el('button', {
+    t.revisao.map((id) => S.transacoes.find((x) => x.id === id)).filter(Boolean).sort(maisRecentePrimeiro).map((m) => el('button', {
       class: 'botao sec bloco',
       onclick: () => resolverRevisao(t, m.id),
     }, `${m.contraparte} (${dataCurta(m.data)})`)),

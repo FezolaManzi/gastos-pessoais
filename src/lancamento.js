@@ -41,3 +41,18 @@ export function mesSeguinte(mes) {
   const [a, m] = mes.split('-').map(Number);
   return new Date(Date.UTC(a, m, 1)).toISOString().slice(0, 7);
 }
+
+// O FITID termina na sequência do dia, em que 1 é a transação mais recente.
+function ordemNoDia(t) {
+  return Number(t.fitid?.slice(11)) || 0;
+}
+
+// O extrato não traz horário: no mesmo dia, lançamentos manuais vêm antes dos do banco.
+export function maisRecentePrimeiro(a, b) {
+  if (a.data !== b.data) return b.data.localeCompare(a.data);
+  const manualA = a.tipo === 'manual';
+  const manualB = b.tipo === 'manual';
+  if (manualA !== manualB) return manualA ? -1 : 1;
+  if (manualA) return (b.criadoEm || '').localeCompare(a.criadoEm || '');
+  return ordemNoDia(a) - ordemNoDia(b);
+}

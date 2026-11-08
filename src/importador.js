@@ -34,6 +34,7 @@ export function vincular(banco, manual) {
       id: manual.id,
       descricao: manual.contraparte,
       data: manual.data,
+      criadoEm: manual.criadoEm,
       categoria: manual.categoria,
       item: manual.item,
       grupo: manual.grupo,
@@ -56,7 +57,7 @@ export function vincularSoma(banco, itens) {
     detalhe: {
       descricao: resumirItens(itens),
       itens: itens.map((m) => ({
-        id: m.id, descricao: m.contraparte, data: m.data, categoria: m.categoria, item: m.item, grupo: m.grupo, centavos: m.centavos,
+        id: m.id, descricao: m.contraparte, data: m.data, criadoEm: m.criadoEm, categoria: m.categoria, item: m.item, grupo: m.grupo, centavos: m.centavos,
       })),
     },
   };
@@ -69,6 +70,7 @@ export function desfazerVinculo(banco, categoriaOriginal) {
     id: d.id,
     tipo: 'manual',
     data: d.data,
+    criadoEm: d.criadoEm,
     centavos: d.centavos,
     contraparte: d.descricao,
     memo: '',

@@ -1,5 +1,5 @@
 // Abre do cache na hora e atualiza em segundo plano: versão nova vale na próxima abertura.
-const CACHE = 'gastos-v1';
+const CACHE = 'gastos-v2';
 const ARQUIVOS = [
   './',
   'index.html',
@@ -20,7 +20,7 @@ const ARQUIVOS = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ARQUIVOS)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ARQUIVOS.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -36,7 +36,7 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(
     caches.open(CACHE).then(async (cache) => {
       const salvo = await cache.match(e.request, { ignoreSearch: true });
-      const rede = fetch(e.request)
+      const rede = fetch(e.request, { cache: 'no-cache' })
         .then((r) => {
           if (r.ok) cache.put(e.request, r.clone());
           return r;

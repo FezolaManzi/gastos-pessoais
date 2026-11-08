@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseOfx } from '../src/inter-ofx.js';
 import { parseFaturaCsv } from '../src/inter-fatura.js';
-import { parseLancamento, parseValor } from '../src/lancamento.js';
+import { maisRecentePrimeiro, parseLancamento, parseValor } from '../src/lancamento.js';
 import { compilarRegras, categorizar, regraDeCorrecao, A_CLASSIFICAR } from '../src/categorias.js';
 import {
   calcularEnvelope, contaNoEnvelope, dinheiroLivre, ehFixo, historicoFechamentos, registrarFechamentos, relatorioItens, resumoMes,
@@ -399,4 +399,39 @@ test('fechamento: a falta não passa para o mês seguinte', () => {
   const e = calcularEnvelope(config, [gasto('2026-10-10', 900000)], '2026-11-01');
   assert.equal(e.saldoAnterior, 0);
   assert.equal(e.podeHoje, 12700);
+});
+
+const ordenar = (lista) => [...lista].sort(maisRecentePrimeiro).map((t) => t.id);
+
+test('ordem: datas mais recentes primeiro', () => {
+  const lista = [{ id: 'a', data: '2026-10-01' }, { id: 'c', data: '2026-11-08' }, { id: 'b', data: '2026-11-01' }];
+  assert.deepEqual(ordenar(lista), ['c', 'b', 'a']);
+});
+
+test('ordem: no mesmo dia segue a sequência do banco, mesmo com dois dígitos', () => {
+  const lista = [
+    { id: 'c', data: '2026-10-27', fitid: '2026102707712' },
+    { id: 'a', data: '2026-10-27', fitid: '202610270771' },
+    { id: 'b', data: '2026-10-27', fitid: '202610270772' },
+  ];
+  assert.deepEqual(ordenar(lista), ['a', 'b', 'c']);
+});
+
+test('ordem: manuais do dia vêm antes do banco, o último lançado primeiro', () => {
+  const lista = [
+    { id: 'banco', data: '2026-11-08', tipo: 'debito', fitid: '202611080771' },
+    { id: 'antigo', data: '2026-11-08', tipo: 'manual' },
+    { id: 'm1', data: '2026-11-08', tipo: 'manual', criadoEm: '2026-11-08T10:00:00Z' },
+    { id: 'm2', data: '2026-11-08', tipo: 'manual', criadoEm: '2026-11-08T12:00:00Z' },
+  ];
+  assert.deepEqual(ordenar(lista), ['m2', 'm1', 'antigo', 'banco']);
+});
+
+test('ordem: o horário do lançamento sobrevive a ligar e separar do extrato', () => {
+  const criadoEm = '2026-11-08T10:00:00Z';
+  const banco = { ...gasto('2026-11-08', 500), id: 'b' };
+  const unico = desfazerVinculo(vincular(banco, manual('m', '2026-11-08', 500, { criadoEm })), 'Mercado');
+  assert.equal(unico.manuais[0].criadoEm, criadoEm);
+  const soma = desfazerVinculo(vincularSoma(banco, [manual('m', '2026-11-08', 500, { criadoEm })]), 'Mercado');
+  assert.equal(soma.manuais[0].criadoEm, criadoEm);
 });
